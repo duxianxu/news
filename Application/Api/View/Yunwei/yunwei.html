@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <title>运维App接口测试</title>
+    <script src="../../../../Public/js/jquery.min.js"></script>
+</head>
+
+<body>
+<table style="margin-left: 50px;margin-top: 50px;">
+    <tr>
+        <td style="padding-right: 20px;"><a href="#ct1">检测是否换电接口</a></td>
+        <td style="padding-right: 20px;"><a href="#ct2">换电接口</a></td>
+        <td style="padding-right: 20px;"><a href="#ct20">新版换电接口</a></td>
+        <td style="padding-right: 20px;"><a href="#ct3">完成换电上传图片记录</a></td>
+        <td style="padding-right: 20px;"><a href="#ct4">车辆历史操作记录</a></td>
+        <td style="padding-right: 20px;"><a href="#ct5">个人中心历史操作记录</a></td>
+        <td style="padding-right: 20px;"><a href="#ct6">个人操作记录统计</a></td>
+        <td style="padding-right: 20px;"><a href="#ct7">查询个人工作记录详情</a></td>
+        <td style="padding-right: 20px;"><a href="#ct8">app强制更新接口</a></td>
+    </tr>
+</table>
+<h3 style="margin-left: 50px;">库管端app接口</h3>
+<table style="margin-left: 50px;margin-top: 20px;">
+    <tr>
+        <td style="padding-right: 20px;"><a href="#bt1">电池扫描检测接口</a></td>
+        <td style="padding-right: 20px;"><a href="#bt2">电池移除接口</a></td>
+        <td style="padding-right: 20px;"><a href="#bt3">电池订单详情</a></td>
+        <td style="padding-right: 20px;"><a href="#bt4">新电池确认入库接口</a></td>
+        <td style="padding-right: 20px;"><a href="#bt5">库管端领用归还（取消操作）接口</a></td>
+        <td style="padding-right: 20px;"><a href="#bt6">电池流转记录接口</a></td>
+		<td style="padding-right: 20px;"><a href="#bt7">订单扫码确认和电池流转记录详</a></td>
+		<td style="padding-right: 20px;"><a href="#bt8">换电操作步骤接口</a></td>
+    </tr>
+	 <tr>
+        <td style="padding-right: 20px;"><a href="#bt11">查询订单时时状态</a></td>
+        <td style="padding-right: 20px;"><a href="#bt12">查询是否有换电未完成记录接口</a></td>
+		<td style="padding-right: 20px;"><a href="#bt13">工作站电池统计接口</a></td>
+         <td style="padding-right: 20px;"><a href="#bt14"><font color="red">运维端我的电池记录接口(无用)</font></a></td>
+         <td style="padding-right: 20px;"><a href="#bt15">库管端查看未完成的领用、归还单</a></td>
+         <td style="padding-right: 20px;"><a href="#bt16">上传图片接口</a></td>
+         <td style="padding-right: 20px;"><a href="#bt17">电池丢失上报接口</a></td>
+         <td style="padding-right: 20px;"><a href="#bt18">电池丢失上报详情接口</a></td>
+    </tr>
+</table>
+<br>
+<div id="ct1" style="margin-left: 50px;">
+    <h3>功能：检测是否换电接口</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/detectionElectricity</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        rent_content_id     //车辆ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 2,                        //1=缺电  2=无需换电 0=该车不存在
+        "message": "无需换电",
+        "data": {
+        "rent_content_id": "295396"      //车辆ID
+		"residual_battery": "100"  //当前电量
+        }
+    }
+    </pre>
+</div>
+
+<div id="ct2" style="margin-left: 50px;">
+    <h3>功能：换电接口</h3>
+    <p>URL：/api/Yunwei/electricity<font color='red'>新版替换/api/Yunwei/completeExchange接口 多传operationId操作ID参数 这个字段不传residual_battery</font></p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        rent_content_id     //车辆ID
+        residual_battery    //当前电量
+        uid                  //用户ID
+        plate_no            //车牌号
+        gis_lng             //经度
+        gis_lat             //纬度
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,                        // 1=完成换电 -2=无需换电或换电没有完成  0=该车辆不存在 <font color="red"> 新版 多反-4=新电池检测不合格，请重新更换电池</font>
+        "message": "已完成换电，请上传照片",
+        "data": {
+            "operationId": "14"    //操作记录ID
+			"residual_battery": "100"  //当前电量
+        }
+    }
+    </pre>
+</div>
+
+<div id="ct20" style="margin-left: 50px;">
+    <h3>功能：新版换电接口</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/complete_electricity</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        rent_content_id     //车辆ID
+        residual_battery    //当前电量
+        uid                  //用户ID
+        plate_no            //车牌号
+        gis_lng             //经度
+        gis_lat             //纬度
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,                        // 1=完成换电  2=请更换满电量电池  0状态包含（该车辆不存在，设备接收命令并返回失败，设备断开连接，命令重复，请求超时）
+        "message": "已完成换电，请上传照片",
+        "data": {
+            "operationId": "14"    //操作记录ID
+			"residual_battery": "100"  //当前电量
+        }
+    }
+    </pre>
+</div>
+
+<div id="ct3" style="margin-left: 50px;">
+    <h3>功能：完成换电上传图片记录</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/electricityLog<font color='red'>新版替换 多传type参数等于1 老板本 不传</font></p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+       operationId     //操作记录ID
+       picture         //上传的图片
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,            //1=上传成功  0=上传失败
+        "message": "上传完成"
+    }
+    </pre>
+</div>
+
+<div id="ct4" style="margin-left: 50px;">
+    <h3>功能：车辆历史操作记录</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/carHistoryRecord</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+		rent_content_id  //车辆ID
+		search          //搜索内容
+		time            //搜索时间
+		operate        //搜索操作类型
+		page           //页码
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收完成",
+        "data": {
+		    "page":1,                                   //页码
+            "type_arr": [-------------------------------//操作类型
+                {
+                    "operate_id": 1,                       //操作类型ID
+                    "operate": "换电"
+                },
+                {
+                    "operate_id": 8,
+                    "operate": "上架待租"
+                },
+                {
+                    "operate_id": 5,
+                    "operate": "下架回收"    //下架回收包含两种状态  51 下架回收--待维修  52 下架回收--待调度
+                },
+                {
+                    "operate_id": 6,
+                    "operate": "待小修"
+                },
+                {
+                    "operate_id": 9,
+                    "operate": "疑失"
+                },
+                {
+                    "operate_id": 10,
+                    "operate": "疑难"
+                },
+                {
+                    "operate_id": 7,
+                    "operate": "车辆丢失"
+                },
+                {
+                    "operate_id": 4,
+                    "operate": "完成小修"
+                },
+                {
+                    "operate_id": 3,
+                    "operate": "确认回收"
+                }
+				,
+                {
+                    "operate_id": 11,
+                    "operate": "电池丢失"
+                }
+				,
+                {
+                    "operate_id": 12,
+                    "operate": "设防"
+                }
+				,
+                {
+                    "operate_id": 13,
+                    "operate": "撤防"
+                }
+				,
+                {
+                    "operate_id": 14,
+                    "operate": "启动"
+                }
+                ,
+               {
+                    "operate_id": 15,
+                    "operate": "人工停租"
+                }
+                ,
+               {
+                    "operate_id": 16,
+                    "operate": "手动矫正"
+                }
+                ,
+               {
+                    "operate_id": 17,
+                    "operate": "自动矫正"
+                }
+            ],
+            "historyRecord": [----------------------------------操作列表数据
+                {
+                    "id": "1",                                    //操作记录ID
+                    "plate_no": "",                               //车牌号
+                    "operate": "下架回收",                        //操作类型
+					"operate_id": 4,                               //操作类型int
+                    "time1": "14:55",                              //操作类型时间
+                    "date": "2017-07-27",                         //操作类型日期
+                    "user_name": "",                             //操作人名
+                    "is_spring": 0                               //是否弹出浮层  1是 0-否  2=跳转  疑失、疑难、车辆丢失
+                },
+                {
+                    "id": "14",
+                    "plate_no": "DD919130",
+                    "operate": "换电",
+                    "time": "2017-07-26 16:34:23",
+                    "user_name": "",
+                    "is_spring": 0
+                }
+            ]
+        }
+    }
+    </pre>
+</div>
+
+
+<div id="ct5" style="margin-left: 50px;">
+    <h3>功能：个人中心历史操作记录</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/personalHistoryRecord</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+		search          //搜索内容
+		time            //搜索时间
+		operate        //搜索操作类型
+		page           //页码
+		uid            //用户ID
+		device_os      //系统  Android  iOS
+		version       //当前版本
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收完成",
+        "data": {
+		    "page":1,                                   //页码
+            "type_arr": [--------------------------------//个人中心操作类型
+                {
+                    "operate_id": 1,
+                    "operate": "换电设防"
+                },
+                {
+                    "operate_id": 2,
+                    "operate": "换电设防失败"
+                },
+                {
+                    "operate_id": 3,
+                    "operate": "确认回收"
+                },
+                {
+                    "operate_id": 4,
+                    "operate": "完成小修"
+                },
+                {
+                    "operate_id": 5,
+                    "operate": "下架回收"     //下架回收包含两种状态  51 下架回收--待维修  52 下架回收--待调度
+                },
+                {
+                    "operate_id": 6,
+                    "operate": "待小修"
+                }
+				,
+                {
+                    "operate_id": 11,
+                    "operate": "电池丢失"
+                }
+            ],
+            "historyRecord": [
+                  {
+				"id": "6",                                      //操作记录ID
+				"plate_no": "DD919130",                         //车牌号
+				"operate": "完成小修",                          //操作类型string
+				"operate_id": 4,                                //操作类型int           这个状态为 -2的时候的是 换电未上传图片
+				"is_spring": 1,                                //是否弹出浮层  1是 0 否  默认都是
+				"time1": "14:31",                              //时间
+				"date": "2017-08-01"                           //日期
+                },
+
+             ]
+        }
+    }
+    </pre>
+</div>
+
+<div id="ct6" style="margin-left: 50px;">
+    <h3>功能：个人操作记录统计</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/historyRecordCount</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+      uid            //用户ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收完成",
+        "data": {
+            "day_count": { -----------------------------------//每天的操作记录统计
+                "total_car": 1,                                  //总的辆数
+                "hd_car_num": 0,                                 //换电的辆数
+                "repair_car_num": 0,                            //待小修的辆数
+                "recover_car_num": 1,                           //下架回收的辆数
+                "confirm_recovery_car_num": 1,                 //确认回收的辆数
+                "complete_recover_car_num": 0                  //完成小修的辆数
+            },
+            "month_count": { --------------------------------//每月的操作记录统计
+                "total_car": 7,
+                "hd_car_num": 0,
+                "repair_car_num": 0,
+                "recover_car_num": 1,
+				"confirm_recovery_car_num": 1,
+                "complete_recover_car_num": 0
+            }
+        }
+    }
+    </pre>
+</div>
+
+<div id="ct7" style="margin-left: 50px;">
+    <h3>功能：查询个人工作记录详情</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/operationInfo</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        operationId     //操作记录ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+		"code": 1,                             // 1=数据接收完成 0=该操作记录不存在
+		"message": "数据接收完成",
+		"data": {
+			"operationInfo": {
+			    "title":"换电附件"                                                                             //弹窗标题
+				"pic1": "xiaomi.baojia.com/Public/img/pic/2017/0801/155c554e61355c8b38a2b7e33e27fa3e.png",     //图片
+				"car_status": "脚蹬子缺失",                                                                   //待小修 类型
+				"address": "北京市朝阳区亚运村街道中华民族园唐人街购物广场",                                //地址
+				"area": "界内"                                                                                //界内界外
+			}
+		}
+	}
+    </pre>
+</div>
+<div id="ct8" style="margin-left: 50px;">
+    <h3>功能：app强制更新接口</h3>
+    <p>URL：http://xiaomi.baojia.com/index.php/api/Yunwei/forcedUpdate</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        version     //app当前版本号
+		device_os   //手机系统    Android   iOS
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+		"code": 1,                                    //0=参数错误  1=数据接收成功
+		"message": "数据接收成功",
+		"data": {
+			"isForced": 1,                           //0 不更新  1 强制更新
+			"title": "更新提示",                    //弹窗标题
+			"version": "1.1.0",                     //新的版本号
+			"content": "为了正常使用请更新版本",   //更新内容
+			"saveUrl": ""                           //更新链接
+		}
+	}
+    </pre>
+</div>
+<div id="bt1" style="margin-left: 50px;">
+    <h3>功能：电池扫描检测接口</h3>
+    <p>URL：/api/Battery/batterySelect</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        uid    用户ID
+        battery_number   电池编号
+        type              状态  1 新电池入库检测   2 库管端电池领取检测  3 库管端电池归还检测 4 换电检测
+    </pre>
+    <p>返回值</p>
+    <pre>
+    新电池入库检测
+    {
+        "code": 1,   0 有一下几种 （该新电池已经入库了）（参数错误）（该用户不存在）
+        "message": "该新电池可以入库"
+    }
+    库管端电池领取检测
+    {
+        "code": 1,   0 有一下几种 （该电池还没有入库）（参数错误）（该用户不存在）
+        "message": "该电池可以领取"
+    }
+	 库管端电池归还检测
+    {
+        "code": 1,   0 有一下几种 （该电池不可归还或还没有入库）（参数错误）（该用户不存在）
+        "message": "该电池可以归还"
+    }
+	 换电检测
+    {
+        "code": 1,   0 有一下几种 （该电池不可以换电）（参数错误）（该用户不存在）
+        "message": "该电池可以换电"
+    }
+    </pre>
+</div>
+
+<div id="bt2" style="margin-left: 50px;">
+    <h3>功能：电池移除接口</h3>
+    <p>URL：/api/Battery/newBatteryDel</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        uid    用户ID
+        batteryId  电池ID
+        type        状态  1、新电池入库 2、员工领用
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1, code为0  message返回值有  1、移除失败 2、该电池记录不存在 3、该用户不存在
+        "message": "移除成功"
+    }
+    </pre>
+</div>
+
+<div id="bt3" style="margin-left: 50px;">
+    <h3>功能：电池订单详情</h3>
+    <p>URL：/api/Battery/batteryOrderDetails</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        uid          用户ID
+        borderId    电池订单ID
+        type         订单类型   1 入库单  2 领取单  3 归还单  4运维人员确认领取
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收成功",
+        "data": {
+                "order_number_title": "单号：",
+                "borderId": "3",                   //订单号
+                "order_number": "20170927173132",
+                "order_status": "1",              //订单状态  1 电池入库单   3 电池领用单
+                "qrcode_url": "",                 //二维码路径
+                "title": "电池入库单",
+                "status": 1,                      //订单当前状态  1、入库成功  0、待确认
+                "order_time_title": "入库时间：",
+                "site_title": "入库站点：",
+                "battery_num_title": "入库数量：",
+                "user_title": "入库人：",
+               "user_name": "测试添加员工",          //入库人姓名
+               "order_time": "2017-09-27 17:31",   //入库时间
+               "site": "12333",                     //入库站点
+               "battery_num": "2块"                 //入库电池数量
+            }
+        }
+    </pre>
+</div>
+
+<div id="bt4" style="margin-left: 50px;">
+     <h3>功能：新电池确认入库接口</h3>
+    <p>URL：/api/Battery/batteryOrder</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        uid    用户ID
+        batteryNumber   电池编号  多个用逗号隔开
+        type   状态  1、新电池入库 2、库管端（员工领用） 3 （库管端）员工归还  4运维确认领用 5运维端确认归还
+        borderId    订单ID   运维端（员工确认领用）传订单号
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1, code 为0 message返回  该用户没有权限 、新电池入库失败、参数错误、该用户不存在
+        "message": "新电池入库成功",
+        "data": {
+            "exist_battery": [
+                "12352222"
+            ],
+            "orderInfo": {
+                "order_number_title": "单号：",
+                "borderId": "3",                   //订单号
+                "order_number": "20170927173132",
+                "order_status": "1",              //订单状态  1 电池入库单   3 电池领用单
+                "qrcode_url": "",                 //二维码路径
+                "title": "电池入库单",
+                "status": 1,                      //订单当前状态  1、入库成功  0、待确认 2、已取消
+                "order_time_title": "入库时间：",
+                "site_title": "入库站点：",
+                "battery_num_title": "入库数量：",
+                "user_title": "入库人：",
+                "user_name": "测试添加员工",          //入库人姓名
+                "order_time": "2017-09-27 17:31",   //入库时间
+                "site": "12333",                     //入库站点
+                "battery_num": "2块"                 //入库电池数量
+            }
+        }
+    }
+    {
+        "code": 404,
+        "message": "该电池都已存在",
+        "data": {
+            "exist_battery": [
+                "12352222",
+                "12353333",
+                "12354444",
+                "12355555"
+            ]
+        }
+    }
+    </pre>
+</div>
+
+<div id="bt5" style="margin-left: 50px;">
+    <h3>功能：库管端领用归还（取消操作）接口</h3>
+    <p>URL：/api/Battery/batteryCancel</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        uid    用户ID
+        borderId    订单ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,  code 为0 message返回  1、该用户没有权限（只有库管有权限） 2、该电池领用单不存在 3、取消失败
+        "message": "取消成功"
+    }
+    </pre>
+</div>
+
+<div id="bt6" style="margin-left: 50px;">
+    <h3>功能：电池流转记录接口</h3>
+    <p>URL：/api/Battery/borderLists</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        uid    用户ID
+		userName     用户名
+        time   时间
+        status 状态  0 全部订单 1 电池入库单   3 电池领用单 4 电池归还单
+        page   页码
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收成功",
+        "data": [
+            {
+                "order_number_title": "单号：",
+                "borderId": "3",                       //订单ID
+                "order_number": "20170922185928",
+                "title": "电池领用单",
+                "status": 1,            //订单是否完成   1已完成 0 待确认
+				"order_status":1,      //订单状态  1 电池入库单   3 电池领用单  4、电池归还单
+                "order_time_title": "领取时间：",
+                "site_title": "领取站点：",
+                "battery_num_title": "领取数量：",
+                "user_title": "领取人：",
+                "user_name": "运维测试",
+                "order_time": "2017-09-22 18:59",
+                "site": "12333",
+                "battery_num": "5块"
+            }
+        ],
+        "page": 1   //当前页码
+    }
+    </pre>
+</div>
+
+<div id="bt8" style="margin-left: 50px;">
+    <h3>功能：换电操作步骤接口</h3><font color='red'>step参数标记为红色调此接口</font>
+    <p>URL：/api/Battery/electricityStep</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         uid     用户ID
+         operationId  操作记录ID  
+         step   （按钮） 1=打开电池仓 <font color='red'> 2=（无电）确认下一步</font> 3=检验电量 <font color='red'>4=（有电）确认下一步</font> 5=完成换电拍照页 6=设防页
+         battery_number   电池编号
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "电池取出成功"
+    }
+    </pre>
+</div>
+
+<div id="bt7" style="margin-left: 50px;">
+    <h3>功能：订单扫码确认和电池流转记录详</h3>
+    <p>URL：/api/Battery/orderScanCode</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+        uid    用户ID
+        borderId    订单ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,     0 有（该用户不存在）、（该订单不存在）
+        "message": "数据接收成功",
+        "data": {
+            "batteryList": [
+                {
+                    "id": "10",                    //电池ID
+                    "battery_number": "12351111"  //电池编号
+                },
+                {
+                    "id": "11",
+                    "battery_number": "12352222"
+                }
+            ],
+            "borderId": "3"                   //订单ID
+            "order_status": "3"               //订单状态   1入库单  3 领取单 4 归还单
+            "numberTitle": "编号"            //电池编号标题
+            "title": "本次领取的电池"       //弹窗标题
+        }
+    }
+    </pre>
+</div>
+
+<div id="bt11" style="margin-left: 50px;">
+    <h3>功能：查询订单时时状态</h3>
+    <p>URL：/api/Battery/orderStatus</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         borderId     订单ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收成功",
+        "data": {
+            "order_status": "0",       //订单状态  0库管端（领取、归还）  1 入库单  2 取消  3 领取单 4归还单
+            "order_type": "0",         //订单是否完成   0  未完成 1 已完成
+            "user_name": "测试添加员工"
+        }
+    }
+    </pre>
+</div>
+
+<div id="bt12" style="margin-left: 50px;">
+    <h3>功能：查询是否有换电未完成记录接口</h3>
+    <p>URL：/api/Battery/operatingSelect</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         uid     用户ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,  0=该用户不存在  2=没有未完成换电记录
+        "message": "数据接收成功",
+        "data": {
+            "id": "67130",                //记录ID
+            "rent_content_id": "12",      //车辆ID
+            "reportId": "12",             //电池上报id
+            "plate_no": "DD928753",      //车牌号
+            "finishStep": "0",           //完成步骤  1=打开电池仓  2=（无电）确认下一步 3=检验电量 4=（有电）确认下一步 5=完成换电拍照页  8=等待审核  9=审核被驳回 10=退回修改 11=审核通过
+            "address": "北京市丰台区大红门街道西罗园南里小区"    //地址
+			"gis_lng": "",                      //经度
+			"gis_lat": "",                      //纬度
+			"bis_lng": "",                      //百度经度
+			"bis_lat": "",                      //百度纬度
+			"title": "未完成换电前往处理",
+			"anniu": [
+				{
+					"status": 1,         
+					"anTitle": "立即前往"
+				},
+				{
+					"status": 2,
+					"anTitle": "继续为该车换电"
+				}
+			]
+        }
+    }
+    </pre>
+</div>
+<div id="bt13" style="margin-left: 50px;">
+    <h3>功能：工作站电池统计接口</h3>
+    <p>URL：/api/Battery/stationCount</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         uid     用户ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收成功",
+        "data": {
+            "tBattery": "18",     //工作站总的块数
+            "uCount": "18",       //工作站员工数
+            "cBattery": "10",     //工作站出库块数
+            "kBattery": "8",      //工作站库中块数
+			"yd_number":"1",      //运维端持有有电池数量
+			"wd_number":"1",      //运维端持有无电池数量
+            "unit": "块"          //单位
+        }
+    }
+    </pre>
+</div>
+<div id="bt14" style="margin-left: 50px;">
+    <h3 style="TEXT-DECORATION: line-through">功能：<font color="red">运维端我的电池记录接口(无用)</font></h3>
+    <p>URL：/api/Battery/selectBatteryList</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         uid     用户ID
+		 page    页码
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+		"code": 1,
+		"message": "数据接收成功",
+		"data": {
+			"battery_list": [
+				{
+					"electricity_status": "0",        //电池电量状态  0 有电 1 无电
+					"battery_number": "10000026"
+				},
+				{
+					"electricity_status": "1",
+					"battery_number": "10000025"     //电池编号
+				}
+			],
+			"total": "2",                       //我持有的电池数量
+			"page": 1                           //传个我的页码
+		}
+	}
+    </pre>
+</div>
+
+<div id="bt15" style="margin-left: 50px;">
+    <h3>功能：库管端查看未完成的领用、归还单</h3>
+    <p>URL：/api/Battery/noSelectOrder</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         uid     用户ID
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,
+        "message": "数据接收成功",
+        "data": {
+                "order_number_title": "单号：",
+                "borderId": "3",                   //订单号
+                "order_number": "20170927173132",
+                "order_status": "1",              //订单状态     3 电池领用单 4 归还单
+                "qrcode_url": "",                 //二维码路径
+                "title": "电池入库单",
+                "status": 1,                      //订单当前状态  1、入库成功  0、待确认 2、已取消
+                "order_time_title": "入库时间：",
+                "site_title": "入库站点：",
+                "battery_num_title": "入库数量：",
+                "user_title": "入库人：",
+               "user_name": "测试添加员工",          //入库人姓名
+               "order_time": "2017-09-27 17:31",   //入库时间
+               "site": "12333",                     //入库站点
+               "battery_num": "2块"                 //入库电池数量
+            }
+        }
+    </pre>
+</div>
+
+
+<div id="bt16" style="margin-left: 50px;">
+    <h3>功能：图片上传接口</h3>
+    <p>URL：/api/Battery/imgUpload</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         uid          用户ID
+         picture      上传的图片
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,   0=上传失败、该用户不存在
+        "message": "上传成功",
+        "data": {
+                "imgId": 1           //图片id
+            }
+        }
+    </pre>
+</div>
+
+
+<div id="bt17" style="margin-left: 50px;">
+    <h3>功能：电池丢失上报接口</h3>
+    <p>URL：/api/Battery/batteryLostReport</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         * uid               用户ID
+         * operationId        操作记录ID
+         * reportId           电池丢失上报id   退回修改重新上报电池丢失传值
+         * imgId             上报图片id多张用逗号隔开
+         * rent_content_id  车辆ID
+         * plate_no          车牌号
+         * gis_lng           经度
+         * gis_lat           纬度
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 1,   0=上报失败、该用户不存在、参数不完整、该车不存在
+        "message": "上报成功",
+        "data": {
+                "reportId": 1           //电池丢失上报id
+            }
+        }
+    </pre>
+</div>
+
+
+<div id="bt18" style="margin-left: 50px;">
+    <h3>功能：电池丢失上报反馈接口</h3>
+    <p>URL：/api/Battery/batteryReportFeedback</p>
+    <p>请方法：POST</p>
+    <p>请求参数：</p>
+    <pre>
+         * uid               用户ID
+         * reportId          电池丢失上报id
+    </pre>
+    <p>返回值</p>
+    <pre>
+    {
+        "code": 3,   0=上报失败、该用户不存在、参数不完整、该车不存在  3=退回修改
+        "message": "退回修改",
+        "data": {
+                "remark": 1 ，          //电池驳回原因
+                "title": "审核被驳回"  //标题
+                "content": "以下照片不符合规则请重新上传"  //内容
+                "button": "重新上传"  //按钮
+                "operationId": "115784"    //操作记录ID
+                "imgList":[
+                      {"id":1,"img_url":"","img_status":0,"desc":"图片不清晰"}，id 图片id img_url 图片路径 img_status  图片状态 0正常 1驳回 desc 驳回原因
+                      {"id":1"img_url":"","img_status":1,"desc":"图片不清晰"}
+                 ]
+            }
+    }
+    {
+        "code": 2,   0=上报失败、该用户不存在、参数不完整、该车不存在  2=已驳回
+        "message": "已驳回",
+        "data": {
+                "title": "电池丢失上报审核通过"  //标题
+                "content": "可放入电池完成换电"  //内容
+                "button": "拨打电话"  //按钮
+                "user_name": "李辉"  //姓名
+                "tel": "18612464193"  //电话
+                "operationId": "115784"    //操作记录ID
+            }
+    }
+
+    {
+        "code": 1,   0=上报失败、该用户不存在、参数不完整、该车不存在  1=审核通过
+        "message": "已驳回",
+        "data": {
+                "title": "电池丢失上报审核通过"  //标题
+                "content": "可放入电池完成换电"  //内容
+                "button": "继续换电"  //按钮
+                "operationId": "115784"    //操作记录ID
+            }
+    }
+
+    {
+        "code": 4,   0=上报失败、该用户不存在、参数不完整、该车不存在  4=等待审核
+        "message": "等待审核",
+        "data": {
+                "title": "等待审核"  //标题
+                "content": "请等待审核结果后进行操作..."  //内容
+                "operationId": "115784"    //操作记录ID
+            }
+    }
+
+
+    </pre>
+</div>
+</body>
+
+</html>

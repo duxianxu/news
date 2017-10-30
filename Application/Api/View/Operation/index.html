@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <title>运维App接口测试</title>
+    <style>
+        body,html{height:100%;margin:0;width:100%;padding:0;overflow:hidden;font-size:13px}
+        .map{height:100%;width:60%;float:left}
+        #right{color:#444;background-color:#f8f8f8;width:40%;float:left;height:100%}
+        #right input,#start,#stop{margin:4px;margin-left:15px}
+        .title{width:100%;background-color:#dadada}
+        button{border:solid 1px;margin-left:15px;background-color:#dadafa}
+        .c{font-weight:600;padding-left:15px;padding-top:4px}
+        #address,#lnglat,#nearestJunction,#nearestPOI,#nearestRoad,.title,.ip{padding-left:15px}
+    </style>
+    <script src="__JS__/jquery.min.js"></script>
+</head>
+
+<body>
+<div id="container" class="map" tabindex="0"></div>
+<div id='right'>
+    <div>接口名称:
+        <select id="selAPI">
+            <option value="">请选择接口</option>
+            <option value="SendSMSCode">发送短信验证码</option>
+            <option value="Login">登录</option>
+            <option value="GetUserInfo">获取员工信息</option>
+            <option value="LoadAllXiaomi">所有小蜜车辆</option>
+            <option value="GetBrands">查询车辆品牌</option>
+            <option value="Statistics">统计运维和调度车辆</option>
+            <option value="RepairOperation">车辆操控</option>
+            <option value="RealTimeLocation">实时定位记录</option>
+            <option value="OperationByIMEI">IMEI操控车辆</option>
+            <option value="OperationByIMEIDTZJ">电踏之家操控车辆</option>
+            <option value="GetPosition">获取车辆坐标</option>
+            <option value="CorrectivePosition">位置矫正</option>
+            <option value="QueryCoding">编码查询</option>
+        </select>
+        版本号:
+        <select id="selVersion">
+            <option value="1.2.0">1.2.0</option>
+            <option value="1.1.2">1.1.2</option>
+        </select>
+        <input type='checkbox' id='cbTest'/>
+        <input type='input' id='plate_no' value="" data-no="DD911699" style="width:100px;"/>
+        <br/>
+        请求链接:<span id="api_url"></span>
+        <p id="parameter">
+            <span>接口参数：</span>
+        </p>
+        <p><input type="button" value="调用" id="btnTest" style="width:80px;height:40px;text-align:center;margin:auto;display:block;"></p>
+        <p title="2026	九九一 2053	圣宝龙 2054	台铃">
+            <span>说明（2630751  2026）：<span id="second"></span></span>
+        <p id="describe"></p>
+        </p>
+        <p><textarea id="reault" rows="2" cols="10" style="width:100%;height:100px;" placeholder="返回结果"></textarea></p>
+    </div>
+    <div>
+        <div class='title'>选择模式</div>
+        <input type='radio' name='mode' value='dragMap' checked>拖拽地图模式</input><input type="text" id="longitudeA" placeholder="经度" value=""/>
+        </br>
+        <input type='radio' name='mode' value='dragMarker'>拖拽Marker模式</input><input type="text" id="latitudeA" placeholder="纬度" value=""/>
+    </div>
+    <div>
+        <button id='start'>开始选点</button>
+        <button id='stop'>关闭选点</button>
+        <button id='addMark' title="添加标记覆盖物">添加标记</button>
+        <button id='measureDistance' onClick="startRuler()">开始测距</button>
+        <button id='addPath' onClick="addPath()">添加路径</button>
+        <button id='heatmap' onClick="loadHeatmap()">热力图</button>
+    </div>
+    <div>
+        <div class='title'>选址结果</div>
+        <div class='c'>经纬度:<span id='lnglat'></span></div>
+        <div class='c'>地址:<span id='address'></span></div>
+        <div class='c'>最近的路口:<span id='nearestJunction'></span></div>
+        <div class='c'>最近的路:<span id='nearestRoad'></span></div>
+        <div class='c'>最近的POI:<span id='nearestPOI'></span></div>
+        <?php
+            if ($_SERVER['REMOTE_ADDR']) {
+                $cip = $_SERVER['REMOTE_ADDR'];
+            } elseif (getenv("REMOTE_ADDR")) {
+                $cip = getenv("REMOTE_ADDR");
+            } elseif (getenv("HTTP_CLIENT_IP")) {
+                $cip = getenv("HTTP_CLIENT_IP");
+            } else {
+                $cip = "unknown";
+            }
+            echo "<div class='c'>你的IP地址是:<a href='linebasic.html'><span class='ip'>".$cip."</span></a></div>";
+        ?>
+</div>
+</div>
+<script type="text/javascript" src="http://webapi.amap.com/maps?v=1.3&key=7461a90fa3e005dda5195fae18ce521b&plugin=AMap.Walking,AMap.MouseTool,AMap.PolyEditor,AMap.CircleEditor,AMap.Heatmap"></script>
+<!-- UI组件库 1.0 -->
+<script src="//webapi.amap.com/ui/1.0/main.js?v=1.0.10"></script>
+<script type="text/javascript" src="http://a.amap.com/jsapi_demos/static/resource/heatmapData.js"></script>
+<script type="text/javascript">
+    var map,positionPicker,name='',url="{:U('/Api/Operation/xxxxxx')}";
+    var infoWindow = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -30) });
+    var apiUrl ="",city="北京市",lng=116.387772,lat=39.985119,markers=[],obj=null;
+    var ruler,polyline,lineArr,heatmap,heatmapFlag=0,heatmapData,navg,pathSimplifierIns;
+    var clusterData;
+
+    AMapUI.loadUI(['misc/PositionPicker'], function(PositionPicker) {
+        console.log("上海 贾倩倩 541741 临沂 李强 37195 胡北寒 2742951");
+        map = new AMap.Map('container', {
+            zoom: 16,
+            center: [116.387772,39.985119],//地图中心点
+        });
+        positionPicker = new PositionPicker({
+            mode: 'dragMap',
+            map: map
+        });
+        map.plugin(["AMap.Heatmap"], function() {
+            //初始化heatmap对象
+            heatmap = new AMap.Heatmap(map, {
+                radius: 25, //给定半径
+                opacity: [0, 0.8]
+            });
+        });
+        //heatmap.hide();
+        map.plugin(["AMap.RangingTool"], function() {
+            ruler = new AMap.RangingTool(map);
+            AMap.event.addListener(ruler, "end", function (e) {
+                ruler.turnOff();
+            });
+        });
+        positionPicker.on('success', function(positionResult) {
+            city=positionResult.regeocode.addressComponent.city;
+            if(!city) {
+                city = positionResult.regeocode.addressComponent.province;
+            }
+            lng=positionResult.position.lng;
+            lat=positionResult.position.lat;
+            $(".lng").val(positionResult.position.lng);
+            $(".lat").val(positionResult.position.lat);
+            document.getElementById('lnglat').innerHTML = positionResult.position.lng+","+positionResult.position.lat;
+            document.getElementById('address').innerHTML = positionResult.address;
+            document.getElementById('nearestJunction').innerHTML = positionResult.nearestJunction;
+            document.getElementById('nearestRoad').innerHTML = positionResult.nearestRoad;
+            document.getElementById('nearestPOI').innerHTML = positionResult.nearestPOI;
+        });
+        positionPicker.on('fail', function(positionResult) {
+            document.getElementById('lnglat').innerHTML = ' ';
+            document.getElementById('address').innerHTML = ' ';
+            document.getElementById('nearestJunction').innerHTML = ' ';
+            document.getElementById('nearestRoad').innerHTML = ' ';
+            document.getElementById('nearestPOI').innerHTML = ' ';
+        });
+        var onModeChange = function(e) {
+            positionPicker.setMode(e.target.value)
+        }
+        var startButton = document.getElementById('start');
+        var stopButton = document.getElementById('stop');
+        var addMarkButton= document.getElementById('addMark');
+        var dragMapMode = document.getElementsByName('mode')[0];
+        var dragMarkerMode = document.getElementsByName('mode')[1];
+        AMap.event.addDomListener(addMarkButton, 'click', function() {
+            addMarker();
+        }, false);
+        AMap.event.addDomListener(startButton, 'click', function() {
+            positionPicker.start(map.getBounds().getSouthWest())
+        })
+        AMap.event.addDomListener(stopButton, 'click', function() {
+            positionPicker.stop();
+        })
+        AMap.event.addDomListener(dragMapMode, 'change', onModeChange)
+        AMap.event.addDomListener(dragMarkerMode, 'change', onModeChange);
+        positionPicker.start();
+        map.panBy(0, 1);
+    });
+    function loadHeatmap(){
+        if(!heatmapFlag) {
+            heatmapFlag=1;
+            $.ajax({
+                url: "{:U('/Api/Operation/LoadHeatmapData')}",
+                data: {},
+                type: "post",
+                dataType: "json",
+                success: function (data) {
+                    if(data&&data.data) {
+                        heatmapData = data.data;
+                        heatmap.setDataSet({
+                            data: heatmapData,
+                            max: 100
+                        });
+                        //heatmap.show();
+                        clusterData =[];
+                        $.each(heatmapData,function(i,item){
+                            var p=item.lng+","+item.lat;
+                            clusterData.push(p);
+                        });
+                        AMapUI.load(['ui/geo/DistrictCluster', 'lib/$'], function (DistrictCluster, $) {
+                            //启动页面
+                            initPage(DistrictCluster, $);
+                        });
+                    }
+                }
+            });
+        }else{
+            heatmapFlag=0;
+            heatmap.hide();
+        }
+    }
+    $(function(){
+        $("#selAPI").change(function(){
+            $("#reault").val("");
+            apiUrl ="";
+            name=$(this).val();
+            if(name) {
+                apiUrl =url.replace("xxxxxx",name);
+                $("#api_url").html("http://xiaomi.baojia.com/index.php/Api/Operation/"+name);
+                switch (name) {
+                    case "SendSMSCode":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span>mobile</span><input type="text" id="mobile" value="" placeholder="手机号"/>');
+                        $("#describe").html("code【1 短信发送成功，0 账号不存在，-1 维修权限已关闭，-2 短信发送失败，-100 参数不完整】");
+                        break;
+                    case "Login":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span>mobile</span><input type="text" id="mobile" value="" placeholder="手机号"/>'+
+                            '<span>code</span><input type="text" id="code" value="" placeholder="验证码"/>');
+                        $("#describe").html("code【1 登录成功，0 账号不存在，-1 维修权限已关闭，-2 验证码错误，请重新输入，-3 验证码过期，请刷新后重新获取，-100 参数不完整】<br/>" +
+                            "user【id 编号，user_id 员工id，user_name 员工姓名，job_type 1全职 2兼职，manager_position 职位，mobile 手机号，role_type 员工角色，manual_url 使用手册url】");
+                        break;
+                    case "GetUserInfo":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span>user_id</span><input type="text" id="user_id" value="" placeholder="员工ID"/>');
+                        $("#describe").html("code【1 加载数据成功，0 账号不存在，-100 参数不完整】<br/>" +
+                            "user【id 编号，user_id 员工id，user_name 员工姓名，manager_position 职位，mobile 手机号，role_type 员工角色，manual_url 使用手册url】");
+                        break;
+                    case "LoadAllXiaomi":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="员工ID">user_id</span><input type="text" id="user_id" value="" placeholder="员工ID" style="width:100px;"/>'+
+                            '<span title="高德坐标经度">lngX</span><input type="text" class="lng" id="lngX" value="'+lng+'" placeholder="高德经度" style="width:100px;"/>'+
+                            '<span title="高德坐标纬度">latY</span><input type="text" class="lat" id="latY" value="'+lat+'" placeholder="高德纬度" style="width:100px;"/>'+
+                            '<br/><span title="城市">city</span><input type="text" id="city" value="'+city+'" placeholder="城市" style="width:100px;"/>' +
+                            '<span title="车辆品牌ID">brand_id</span><input type="text" id="brand_id" value="" placeholder="车辆品牌ID" style="width:100px;"/>' +
+                            '<span title="类型">rent_status</span><input type="text" id="rent_status" value="" placeholder="类型" style="width:100px;"/>' +
+                            '<br/><span style="color:red;">rent_status：2离线下架，3两日无单，4故障，5待小修，6越界下架，7待维修，8待调动，9缺电，10馈电下架，11无电，-1 离线且无电，多选需用半角逗号隔开，为空查询全部</span>');
+                        $("#describe").html("code【1 加载数据成功，0 暂无车辆，-1 位置不在所属城市，-100 参数不完整】<br/>" +
+                            "data【rent_content_id 车辆id，gis_lng 经度，gis_lat 纬度，address 地址，city_id 城市id，shop_brand 车辆品牌，picture_url 图片url(前面需要拼接http://pic.baojia.com/s/)，" +
+                            "running_distance 续航里程，battery_capacity 剩余电量，<span style='color:red;'>rent_status 2离线下架，3两日无单，4故障，5待小修，6越界下架，7待维修，8待调动，9缺电，10馈电下架，11无电，-1离线下架且无电</span>】");
+                        break;
+                    case "GetBrands":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="城市">city</span><input type="text" id="city" value="'+city+'" placeholder="城市" style="width:100px;"/>');
+                        $("#describe").html("code【1 查询成功，-100 参数不完整】<br/>" +
+                            "brands【brand_id 品牌ID，brand_name 品牌名称】");
+                        break;
+                    case "RepairOperation":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="员工ID"><span style="color:red;">*</span>user_id</span><input type="text" id="user_id" value="" placeholder="员工ID" style="width:100px;"/>'+
+                            '<span title="车辆ID"><span style="color:red;">*</span>rent_content_id</span><input type="text" id="rent_content_id" value="314889" placeholder="车辆ID" style="width:100px;"/>'+
+                            '<br/><span style="color:red;">*</span><span title="操作类型：4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁">operation_type</span><input type="text" id="operation_type" value="" placeholder="4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁 35=换电设防" style="width:150px;"/>' +
+                            '<span title="换电操作ID">operationId</span><input type="text" id="operationId" value="" placeholder="换电操作ID" style="width:100px;"/>'+
+                            '<br/><span title="高德坐标经度">lng</span><input type="text" class="lng" id="lng" value="'+lng+'" placeholder="高德经度" style="width:100px;"/>'+
+                            '<span title="高德坐标纬度">lat</span><input type="text" class="lat" id="lat" value="'+lat+'" placeholder="高德纬度" style="width:100px;"/>');
+                        $("#describe").html("带<span style='color:red;'>*</span>号为必传参数，operation_type 操作类型：4=鸣笛 <span style='color:red;'>5=设防(普通设防)</span> 6=撤防 7=启动 <span style='color:red;'>34=开舱锁(需要传高德经度lng和纬度lat) 35=换电设防(需要传换电操作的 operationId)</span>  ");
+                        break;
+                    case "RealTimeLocation":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="员工ID"><span style="color:red;">*</span>user_id</span><input type="text" id="user_id" value="" placeholder="员工ID" style="width:100px;"/>'+
+                            '<span title="高德坐标经度"><span style="color:red;">*</span>lngX</span><input type="text" class="lng" id="lngX" value="'+lng+'" placeholder="高德经度" style="width:100px;"/>'+
+                            '<span title="高德坐标纬度"><span style="color:red;">*</span>latY</span><input type="text" class="lat" id="latY" value="'+lat+'" placeholder="高德纬度" style="width:100px;"/>' +
+                            '<br/><button onClick="delete_record()" style="display:none;">删除</button>');
+                        $("#describe").html("带<span style='color:red;'>*</span>号为必传参数</span>  ");
+                        break;
+                    case "OperationByIMEI":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="imei"><span style="color:red;">*</span>imei</span><input type="text" id="imei" value="0865067025340756" placeholder="车辆imei" style="width:100px;"/>'+
+                            '<br/><span style="color:red;">*</span><span title="操作类型：4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁">operation_type</span><input type="text" id="operation_type" value="" placeholder="4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁 37=开轮锁" style="width:150px;"/>');
+                        $("#describe").html("带<span style='color:red;'>*</span>号为必传参数，operation_type 操作类型：4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁 37=开轮锁</span>  ");
+                        break;
+                    case "OperationByIMEIDTZJ":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="imei"><span style="color:red;">*</span>imei</span><input type="text" id="imei" value="865067025720171" placeholder="车辆imei" style="width:100px;" data-orther="865067025956361"/>'+
+                            '<br/><span style="color:red;">*</span><span title="操作类型：4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁">operation_type</span><input type="text" id="operation_type" value="" placeholder="4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁 37=开轮锁" style="width:150px;"/>');
+                        $("#describe").html("带<span style='color:red;'>*</span>号为必传参数，operation_type 操作类型：4=鸣笛 5=设防 6=撤防 7=启动 34=开舱锁 37=开轮锁</span>  ");
+                        break;
+                    case "Statistics":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="员工ID">user_id</span><input type="text" id="user_id" value="" placeholder="员工ID" style="width:100px;"/>'+
+                            '<span title="高德坐标经度">lngX</span><input type="text" class="lng" id="lngX" value="'+lng+'" placeholder="高德经度" style="width:100px;"/>'+
+                            '<span title="高德坐标纬度">latY</span><input type="text" class="lat" id="latY" value="'+lat+'" placeholder="高德纬度" style="width:100px;"/>'+
+                            '<span title="城市">city</span><input type="text" id="city" value="'+city+'" placeholder="城市" style="width:100px;"/>');
+                        $("#describe").html("code【1 加载数据成功，0 暂无车辆，-1 位置不在所属城市，-100 参数不完整】<br/>" +
+                            "job_type【1 全职，2 兼职】<br/>"+
+                            "data【total_repair 需运维总数，battery30 缺电，power_shortage 馈电下架，battery0 无电，offline 离线下架，offline_no_battery 离线且无电，no_order 两日无单，no_distance 故障，to_repair 待小修，total_dispatch 需调度总数，out_bounds 越界下架，maintain 待维修，transfer 待调动】");
+                        break;
+                    case "GetPosition":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="员工ID">user_id</span><input type="text" id="user_id" value="" placeholder="员工ID" style="width:100px;"/>'+
+                            '<span title="车辆ID">rent_content_id</span><input type="text" id="rent_content_id" value="314889" placeholder="车辆ID" style="width:100px;"/>');
+                        $("#describe").html("code【1 查询成功，-100 参数不完整】<br/>" +
+                            "【gps_status 车牌当前位置，failed_record 最后扫码失败APP定位，last_app 最后手机定位，last_bs 最后基站定位，这四项如果不为空 update_time 最后更新时间，gd_lat 高德纬度，gd_lng 高德经度，bd_lat 百度纬度，bd_lng 百度经度】");
+                        break;
+                    case "CorrectivePosition":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="员工ID">user_id</span><input type="text" id="user_id" value="" placeholder="员工ID" style="width:100px;"/>'+
+                            '<span title="车辆ID">rent_content_id</span><input type="text" id="rent_content_id" value="314889" placeholder="车辆ID" style="width:100px;"/><br/>' +
+                            '<span title="高德经度">longitude</span><input type="text" id="longitude" value="" placeholder="高德经度" style="width:100px;"/>'+
+                            '<span title="高德纬度">latitude</span><input type="text" id="latitude" value="" placeholder="高德纬度" style="width:100px;"/>');
+                        $("#describe").html("code【1 更新成功，0 更新失败，-1 查询数据有误，-2 你没有管理这辆车的权限，-100 参数不完整】");
+                        break;
+                    case "QueryCoding":
+                        $("#parameter").html('<span>接口参数：</span>' +
+                            '<span title="员工ID">user_id</span><input type="text" id="user_id" value="" placeholder="员工ID" style="width:100px;"/>'+
+                            '<span title="编码类型">query_type</span><input type="text" id="query_type" value="" placeholder="编码类型" style="width:100px;"/>'+
+                            '<span title="编码">code</span><input type="text" id="code" value="" placeholder="编码" style="width:100px;"/>'+
+                            '<br/><span style="color:red;">query_type 1 车牌号 2 imei 3 流量卡号 4 车架号 5 政府牌照</span>');
+                        $("#describe").html("code【1 查询成功，-100 参数不完整】<br/>" +
+                            "data【plate_no 车牌号，vin 车架号，imei imei号，mobile 流量卡号，government_licence 政府牌照】");
+                        break;
+                }
+            }else{
+                $("#api_url,#parameter,#describe").empty();
+            }
+        })
+        $("#btnTest").click(function () {
+            clearMarks();
+            var data = {version:$("#selVersion").val(),test:$('#cbTest').prop('checked')?1:0};
+            var plate_no=$("#plate_no").val();
+            if(plate_no){
+                name="details";
+                apiUrl =url.replace("xxxxxx",name);
+                $("#api_url").html("http://xiaomi.baojia.com/index.php/Api/Operation/"+name);
+            }else{
+                name=$("#selAPI").val();
+                apiUrl =url.replace("xxxxxx",name);
+                $("#api_url").html("http://xiaomi.baojia.com/index.php/Api/Operation/"+name);
+            }
+            if (!name) {
+                $('#btnTest,#reault').val("请选择调试接口");
+                alert('请选择调试接口');
+                return false;
+            }
+            switch (name) {
+                case "SendSMSCode":
+                    data.mobile= $("#parameter").find("input[ID='mobile']").val();
+                    break;
+                case "Login":
+                    data.mobile= $("#parameter").find("input[ID='mobile']").val();
+                    data.code= $("#parameter").find("input[ID='code']").val();
+                    break;
+                case "LoadAllXiaomi":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    data.lngX= $("#parameter").find("input[ID='lngX']").val();
+                    data.latY= $("#parameter").find("input[ID='latY']").val();
+                    data.city= $("#parameter").find("input[ID='city']").val();
+                    data.brand_id= $("#parameter").find("input[ID='brand_id']").val();
+                    data.rent_status= $("#parameter").find("input[ID='rent_status']").val();
+                    break;
+                case "GetBrands":
+                    data.city= $("#parameter").find("input[ID='city']").val();
+                    break;
+                case "GetUserInfo":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    break;
+                case "RepairOperation":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    data.rent_content_id= $("#parameter").find("input[ID='rent_content_id']").val();
+                    data.operation_type= $("#parameter").find("input[ID='operation_type']").val();
+                    data.lng= $("#parameter").find("input[ID='lng']").val();
+                    data.lat= $("#parameter").find("input[ID='lat']").val();
+                    data.operationId= $("#parameter").find("input[ID='operationId']").val();
+                    break;
+                case "RealTimeLocation":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    data.lngX= $("#parameter").find("input[ID='lngX']").val();
+                    data.latY= $("#parameter").find("input[ID='latY']").val();
+                    break;
+                case "OperationByIMEI":
+                    data.imei= $("#parameter").find("input[ID='imei']").val();
+                    data.operation_type= $("#parameter").find("input[ID='operation_type']").val();
+                    break;
+                case "OperationByIMEIDTZJ":
+                    data.imei= $("#parameter").find("input[ID='imei']").val();
+                    data.operation_type= $("#parameter").find("input[ID='operation_type']").val();
+                    break;
+                case "Statistics":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    data.city= $("#parameter").find("input[ID='city']").val();
+                    data.lngX= $("#parameter").find("input[ID='lngX']").val();
+                    data.latY= $("#parameter").find("input[ID='latY']").val();
+                    break;
+                case "GetPosition":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    data.rent_content_id= $("#parameter").find("input[ID='rent_content_id']").val();
+                    break;
+                case "CorrectivePosition":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    data.rent_content_id= $("#parameter").find("input[ID='rent_content_id']").val();
+                    data.longitude= $("#parameter").find("input[ID='longitude']").val();
+                    data.latitude= $("#parameter").find("input[ID='latitude']").val();
+                    break;
+                case "QueryCoding":
+                    data.user_id= $("#parameter").find("input[ID='user_id']").val();
+                    data.query_type= $("#parameter").find("input[ID='query_type']").val();
+                    data.code= $("#parameter").find("input[ID='code']").val();
+                    break;
+                case "details":
+                    data.plate_no=plate_no;
+                    break;
+            }
+            data.device_os="web";
+            $('#btnTest,#reault').val("调用中...");
+            $("#second").empty();
+            if(polyline){
+                polyline.setMap();
+            }
+            $('<div id="loadingTip">加载数据，请稍候...</div>').appendTo(document.body);
+            $.ajax({
+                url: apiUrl,
+                data: data,
+                type: "post",
+                dataType: "json",
+                success: function (data) {
+                    $('#loadingTip').remove();
+                    infoWindow.close();
+                    if (markers && markers.length > 0) {
+                        $.each(markers, function (i, m) {
+                            m.setMap();
+                        })
+                        markers = [];
+                    }
+                    $('#btnTest').val("调用");
+                    $("#reault").val(JSON.stringify(data));
+                    if(name=="LoadAllXiaomi"){
+                        if (data && data.code == 1&&data.data) {
+                            $("#second").html("耗时"+data.second+"秒");
+                            var xm = data.data;
+                            $.each(xm,function(i,item){
+                                var pic = "http://pic.baojia.com/s/"+item.picture_url;
+                                var rent_status=item.rent_status;
+                                var status="";
+                                var icon="";
+                                //2离线下架，3两日无单，4故障，5待小修，6越界下架，7待维修，8待调动，9缺电，10馈电下架，11无电
+                                switch(rent_status){
+                                    case 1:
+                                        status="1馈电下架";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b1.png";
+                                        break;
+                                    case 2:
+                                        status="2离线下架";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b2.png";
+                                        break;
+                                    case 3:
+                                        status="3两日无单";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b3.png";
+                                        break;
+                                    case 4:
+                                        status="4故障";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b4.png";
+                                        break;
+                                    case 5:
+                                        status="5待小修";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b5.png";
+                                        break;
+                                    case 6:
+                                        status="6越界下架";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b6.png";
+                                        break;
+                                    case 7:
+                                        status="7待维修";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b7.png";
+                                        break;
+                                    case 8:
+                                        status="8待调动";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b8.png";
+                                        break;
+                                    case 9:
+                                        status="9缺电";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b9.png";
+                                        break;
+                                    case 10:
+                                        status="10馈电下架";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_b10.png";
+                                        break;
+                                    case 11:
+                                        status="11无电";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_r10.png";
+                                        break;
+                                    case -1:
+                                        status="-1无电离线";
+                                        icon="http://webapi.amap.com/theme/v1.3/markers/n/mark_r1.png";
+                                        break;
+                                }
+                                var marker = new AMap.Marker({
+                                    position: [item.gis_lng, item.gis_lat],
+                                    icon: icon,
+                                    offset: new AMap.Pixel(-12, -36),
+                                    map: map
+                                });
+                                marker.content = item.plate_no + '--'+ item.rent_content_id +'--电量'+item.residual_battery+'<br/><hr/>' + item.gis_lng + ',' + item.gis_lat + '<br/><hr/>' + status;
+                                marker.on('click', markerClick);
+                                markers.push(marker);
+                            })
+                        }
+                    }
+                    if(name=="GetPosition"){
+                        if (data && data.code == 1) {
+                            if (markers && markers.length > 0) {
+                                $.each(markers, function (i, m) {
+                                    m.setMap();
+                                })
+                                markers = [];
+                            }
+                            if(data.gps_status){
+                                var marker = new AMap.Marker({
+                                    position: [data.gps_status.gd_lng, data.gps_status.gd_lat],
+                                    icon: 'http://webapi.amap.com/theme/v1.3/markers/n/mark_b2.png',
+                                    map: map
+                                });markers.push(marker);
+                            }
+                            if(data.failed_record){
+                                var marker = new AMap.Marker({
+                                    position: [data.failed_record.gd_lng, data.failed_record.gd_lat],
+                                    icon: 'http://webapi.amap.com/theme/v1.3/markers/n/mark_b3.png',
+                                    map: map
+                                });markers.push(marker);
+                            }
+                            if(data.last_app){
+                                console.dir(data.last_app);
+                                var marker = new AMap.Marker({
+                                    position: [data.last_app.gd_lng, data.last_app.gd_lat],
+                                    icon: 'http://webapi.amap.com/theme/v1.3/markers/n/mark_b4.png',
+                                    map: map
+                                });markers.push(marker);
+                            }
+                        }
+                    }
+                    if(name=="details"){
+                        if (data && data.code == 1) {
+                            if(pathSimplifierIns) {
+                                navg.destroy();
+                                pathSimplifierIns.clearPathNavigators();
+                            }
+                            clearMarks();
+                            if(data.data.car_gd_latitude&&data.data.car_gd_longitude){
+                                var marker = new AMap.Marker({
+                                    position: [data.data.car_gd_longitude,data.data.car_gd_latitude],
+                                    icon: 'http://webapi.amap.com/theme/v1.3/markers/n/mark_r.png',
+                                    map: map
+                                });
+                                marker.setMap(map);
+                                markers.push(marker);
+                                map.setCenter(marker.getPosition());
+                                // 自定义构造AMap.Marker对象  var point = new AMap.LngLat(lng,lat); // 创建点坐标
+                            }
+                            if(data.data.user_return.guiji&&data.data.user_return.guiji.length>0){
+                                if(data.data.user_return.start){
+                                    var marker = new AMap.Marker({
+                                        position: [data.data.user_return.start.lon,data.data.user_return.start.lat],
+                                        icon: 'http://webapi.amap.com/theme/v1.3/markers/n/start.png',
+                                        map: map
+                                    });
+                                    marker.setMap(map);
+                                    markers.push(marker);
+                                }
+                                if(data.data.user_return.end){
+                                    var marker = new AMap.Marker({
+                                        position: [data.data.user_return.end.lon,data.data.user_return.end.lat],
+                                        icon: 'http://webapi.amap.com/theme/v1.3/markers/n/end.png',
+                                        map: map
+                                    });
+                                    marker.setMap(map);
+                                    markers.push(marker);
+                                }
+                                lineArr = [];
+                                $.each(data.data.user_return.guiji,function(i,item){
+                                    var line=[item.longitude,item.latitude];
+                                    lineArr.push(line);
+                                });
+                                /*polyline = new AMap.Polyline({
+                                 path:lineArr,          //设置线覆盖物路径
+                                 strokeColor: "#3366FF", //线颜色
+                                 strokeOpacity: 1,       //线透明度
+                                 strokeWeight: 5,        //线宽
+                                 strokeStyle: "dashed",   //线样式
+                                 strokeDasharray: [10, 5] //补充线样式
+                                 });
+                                 polyline.setMap(map);*/
+
+                                AMapUI.load(['ui/misc/PathSimplifier', 'lib/$'], function(PathSimplifier, $) {
+                                    if (!PathSimplifier.supportCanvas) {
+                                        alert('当前环境不支持 Canvas！');
+                                        return;
+                                    }
+                                    pathSimplifierIns = new PathSimplifier({
+                                        zIndex: 100,
+                                        //autoSetFitView:false,
+                                        map: map, //所属的地图实例
+                                        getPath: function(pathData, pathIndex) {
+                                            return pathData.path;
+                                        },
+                                        getHoverTitle: function(pathData, pathIndex, pointIndex) {
+                                            if (pointIndex >= 0) {
+                                                //point
+                                                return pathData.name + '，点：' + pointIndex + '/' + pathData.path.length;
+                                            }
+                                            return pathData.name + '，点数量' + pathData.path.length;
+                                        },
+                                        renderOptions: {
+                                            renderAllPointsIfNumberBelow:100 //绘制路线节点，如不需要可设置为-1
+                                        }
+                                    });
+                                    window.pathSimplifierIns = pathSimplifierIns;
+                                    //设置数据
+                                    pathSimplifierIns.setData([{
+                                        name: '路线0',
+                                        path: lineArr
+                                    }]);
+                                    //对第一条线路（即索引 0）创建一个巡航器
+                                    navg = pathSimplifierIns.createPathNavigator(0, {
+                                        loop: false, //循环播放
+                                        speed: 1000 //巡航速度，单位千米/小时
+                                    });
+                                    navg.start();
+                                });
+                            }
+                        }
+                    }
+                },
+                error:function(){
+                    $('#loadingTip').remove();
+                }
+            });
+        });
+    })
+
+    function delete_record(){
+        $.getJSON("{:U('/Api/Operation/DeleteLocation')}",function(){
+
+        });
+    }
+
+    function initPage(DistrictCluster, $) {
+        var distCluster = new DistrictCluster({
+            map: map, //所属的地图实例
+            //设置显示3个省
+            //topAdcodes: [110000, 120000, 340000],
+            topAdcodes: [110000],
+            getPosition: function(item) {
+                if (!item) {
+                    return null;
+                }
+                var parts = item.split(',');
+                //返回经纬度
+                return [parseFloat(parts[0]), parseFloat(parts[1])];
+            },
+            renderOptions: {
+                featureEventSupport: true,
+                clusterMarkerEventSupport: true,
+                //标注信息Marker上需要监听的事件
+                clusterMarkerEventNames: ['click', 'rightclick', 'mouseover', 'mouseout']
+            }
+        });
+        window.distCluster = distCluster;
+        distCluster.on('featureClick featureMouseover featureMouseout', function(e, feature) {
+            $('#infoTip').html(e.type + ': ' + feature.properties.name);
+        });
+        distCluster.on('clusterMarkerClick clusterMarkerRightclick clusterMarkerMouseover clusterMarkerMouseout', function(e, record) {
+            $('#infoTip').html(e.type + ': ' + record.feature.properties.name);
+        });
+        //$('<div id="loadingTip">加载数据，请稍候...</div>').appendTo(document.body);
+        distCluster.setData(clusterData);
+        /*$.get('http://a.amap.com/amap-ui/static/data/10w.txt', function(csv) {
+         $('#loadingTip').remove();
+         var data =csv.split('\n');
+         //data=data.slice(0,10);
+         console.dir(data);
+         distCluster.setData(data);
+         });*/
+    }
+
+    function markerClick(e) {
+        obj=e;
+        infoWindow.setContent(e.target.content);
+        infoWindow.open(map,e.target.getPosition());
+    }
+    function addMarker() {
+        clearMarks();
+        var longitude=$("#longitudeA").val();
+        var latitude=$("#latitudeA").val();
+        if(longitude&&latitude) {
+            var marker = new AMap.Marker({
+                icon: "http://webapi.amap.com/theme/v1.3/markers/n/mark_b.png",
+                position: [longitude,latitude]
+            });
+            marker.setMap(map);
+            markers.push(marker);
+        }else{
+            alert("经纬度不能为空")
+        }
+    }
+    function startRuler(){
+        ruler.turnOn();
+    }
+    function clearMarks(){
+        if (markers && markers.length > 0) {
+            $.each(markers, function (i, m) {
+                m.setMap();
+            })
+            markers = [];
+        }
+    }
+</script>
+</body>
+
+</html>
